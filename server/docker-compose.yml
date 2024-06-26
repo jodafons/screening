@@ -1,0 +1,15 @@
+
+version: '3.5'
+
+services:
+  
+  cad_server:
+    container_name: cad-server
+    image: screening/cad-server
+    environment:
+      MODEL_PATH: "/mnt/brics_data/models/v1/user.philipp.gaspar.convnets_v1.baseline.shenzhen_santacasa.exp.20240207.r1/job.test_0.sort_0/output.pkl"
+    ports:
+      - "9000:9000"
+    volumes:
+      - ${DOCKER_STORAGE}:/mnt/brics_data
+    restart: always
