@@ -14,13 +14,13 @@ from screening import DATA_DIR
 
 
 
-def evaluate( train_state, train_data, valid_data, test_data, batch_size : int=32 ):
+def evaluate( train_state, train_data, valid_data, test_data, batch_size : int=8 ):
 
     out_of_sample = Inference( 'inference' , ['russia', 'caxias', 'indonesia','fiocruz'] )
 
     decorators = [
                     # NOTE: set everythong by train dataset (right way)
-                    Summary( key = 'summary', batch_size=batch_size, out_of_sample=out_of_sample ),
+                    Summary( key = 'summary' , batch_size=batch_size, out_of_sample=out_of_sample ),
                     Reference( 'sens90'      , batch_size=batch_size, out_of_sample=out_of_sample, sensitivity=0.9  ), # 0.9 >= of detection
                     Reference( 'max_sp'      , batch_size=batch_size, out_of_sample=out_of_sample, sensitivity=0.9, specificity=0.7  ), # pd >= 0.9 and fa =< 0.3, best sp inside of this region
                     Reference( 'spec70'      , batch_size=batch_size, out_of_sample=out_of_sample, specificity=0.7  ), # 0.3 <= of fake

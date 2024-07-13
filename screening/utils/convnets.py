@@ -425,9 +425,12 @@ def train_altogether(df_train_real, df_train_fake, df_valid_real, weights, param
     ds_valid = build_dataset(df_valid_real, params["image_shape"], params["batch_size"])
 
     tf.keras.backend.clear_session()
-    initial_epoch = 0
-    if os.path.exists(basepath+'/checkpoint.json'):
-        model, initial_epoch = get_checkpoint_from(basepath)
+
+    checkpoint_filepath=basepath+'/checkpoint.json'
+
+    if os.path.exists(checkpoint_filepath):
+        logger.info("starting from the last checkpoint...")
+        model = callbacks.load_model_from_checkpoint(checkpoint_path=basepath)
     else:
         optimizer = adam_v2.Adam(params["learning_rate"])
         tf_metrics = [
@@ -436,40 +439,36 @@ def train_altogether(df_train_real, df_train_fake, df_valid_real, weights, param
             metrics.Precision(name="precision"),
             metrics.Recall(name="recall"),
         ]
-
         model = create_cnn(params["image_shape"], params['model_version'])
         model.compile(loss="binary_crossentropy", optimizer=optimizer, metrics=tf_metrics)
 
-    callbacks = [
-        tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss",
-            patience=params["patience"],
-            verbose=2,
-            restore_best_weights=True,
-        ),
-        MinimumEpochs(params["min_epochs"]),
-        Checkpoint(basepath, each_epoch=5),
-    ]
-
+    model_checkpoint  =callbacks.EarlyStopping(
+                                 monitor='val_loss', 
+                                 patience=params['patience'],
+                                 mode='min',
+                                 checkpoint_path=basepath,
+                                 do_checkpoint=True,
+                                 )
 
     history = model.fit(
         ds_train,
         epochs=params["epochs"],
-        initial_epoch=initial_epoch,
+        initial_epoch=model_checkpoint.initial_epoch,
         validation_data=ds_valid,
-        callbacks=callbacks,
-        verbose=2,
-    )
+        callbacks=[
+            callbacks.MinimumEpochs(params["min_epochs"]),
+            model_checkpoint
+        ],
+        verbose=1,
+    ).history
 
-    history.history["best_epoch"] = callbacks[0].best_epoch
-    history.history["stopped_epoch"] = callbacks[0].stopped_epoch
+    history["best_epoch"]    = model_checkpoint.best_epoch
 
     train_state = prepare_model(
         model=model,
-        history=history.history,
+        history=history,
         params=params,
     )
-
     return train_state
 
 

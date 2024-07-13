@@ -17,6 +17,9 @@ from pybeamer import *
 import matplotlib.pyplot as plt
 model_from_json = tf.keras.models.model_from_json
 import atlas_mpl_style as ampl
+
+import matplotlib
+matplotlib.pyplot.set_loglevel (level = 'error')
 ampl.use_atlas_style()
 
 
@@ -47,11 +50,20 @@ class crossval_ref_filter:
         count=len(table[col_count].unique())
         def is_in(row, delta):
             return 0<abs(row[ref_col_name]-ref)<delta
-        for delta in np.arange(0,1+step,step):
-            table['is_in'] = table.apply(lambda row : is_in(row,delta), axis='columns')
-            if len(table.loc[table['is_in']==True][col_count].unique())==count:
-                break
-        table = table.loc[table['is_in']==True]
+        train_tags = table['train_tag'].unique().tolist()
+
+        tables = []
+        for train_tag in train_tags:
+            table_train_tag = table.loc[table.train_tag==train_tag].copy()
+            for delta in np.arange(0,1+step,step):
+                table_train_tag['is_in'] = table_train_tag.apply(lambda row : is_in(row,delta), axis='columns')
+                # NOTE: force to have always the same number of tests boxes
+                if len(table_train_tag.loc[ table_train_tag['is_in']==True][col_count].unique())==count:
+                    break
+            tables.append(table_train_tag.loc[table_train_tag['is_in']==True])
+            
+        table = pd.concat(tables, axis='rows')
+        table.drop(columns=['is_in'], inplace=True)
         idxmask = table.groupby(group_col_names)[max_col_name].idxmax().values
         return table.loc[idxmask]
 
@@ -431,7 +443,7 @@ class crossval_table:
                 detailed   : bool=True, 
                 color_map  : dict={} ):
 
-        color_map   = {'tight':2,'medium':1,'loose':0}
+        color_map   = {'sens90':0,'max_sp':1,'spec70':2}
         cv_table    = self.describe( best_sorts )
         #best_models = self.best_models( best_sorts )
 
@@ -446,6 +458,9 @@ class crossval_table:
 
         basedir=os.getcwd()+'/figures'
 
+        def escape_underline(name):
+            return name.replace('_','\_')
+
         # Apply beamer
         with BeamerTexReportTemplate1( theme = 'Berlin'
                                        , _toPDF = True
@@ -457,7 +472,7 @@ class crossval_table:
             for op_name in cv_table.op_name.unique():
 
 
-                with BeamerSection( name = op_name):
+                with BeamerSection( name = escape_underline(op_name) ):
 
                     color_col = color_map[op_name]
 
@@ -481,7 +496,7 @@ class crossval_table:
                             #
                             figures = self.plot_training_curves( _table, _best_sorts, basepath )
                             for figure in figures:
-                                BeamerFigureSlide( title = f'Training curves for {train_tag} in {op_name} operation.'
+                                BeamerFigureSlide( title = escape_underline(f'Training curves for {train_tag} in {op_name} operation.')
                                     , path = figure
                                     , texts=None
                                     , fortran = False
@@ -497,7 +512,7 @@ class crossval_table:
                                 self.plot_roc_curve( _best_sorts, _best_model, f'{basedir}/roc_{train_tag}_{op_name}_val.pdf'  , key='roc_val' , title='Val.' ),
                                 self.plot_roc_curve( _best_sorts, _best_model, f'{basedir}/roc_{train_tag}_{op_name}_test.pdf' , key='roc_test', title='Test' ),
                             ]
-                            BeamerMultiFigureSlide( title = f'ROC curves for {train_tag} in {op_name} operation.'
+                            BeamerMultiFigureSlide( title = escape_underline(f'ROC curves for {train_tag} in {op_name} operation.')
                                     , paths = figures
                                     , nDivWidth = 3 # x
                                     , nDivHeight = 1 # y
@@ -520,27 +535,27 @@ class crossval_table:
                         lines += [ TableLine( columns = ['', '']+col_names, _contextManaged = False ) ]
                         lines += [ HLine(_contextManaged = False) ]
                         keys    = ['sens_at', 'sp_index', 'spec_at' , 'auc']
-                        row     = [ '%1.2f$\pm$%1.2f'%(t[key+'_mean']*100 , t[key+'_std']*100) for key in keys]
+                        row     = [ '%1.2f$\pm$%1.2f'%(float(t[key+'_mean'].iloc[0])*100 , float(t[key+'_std'].iloc[0])*100) for key in keys]
                         colorize( row, op_name, color, color_map)
                         lines += [ TableLine( columns = ['\multirow{4}{*}{'+train_tag+'}', 'Train']  + row , _contextManaged = False ) ]
                         keys    = ['sens_at_val', 'sp_index_val', 'spec_at_val', 'auc_val' ]
-                        row     = [ '%1.2f$\pm$%1.2f'%(t[key+'_mean']*100 , t[key+'_std']*100) for key in keys]
+                        row     = [ '%1.2f$\pm$%1.2f'%(float(t[key+'_mean'].iloc[0])*100 , float(t[key+'_std'].iloc[0])*100) for key in keys]
                         colorize( row, op_name, color, color_map)
                         lines += [ TableLine( columns = ['', 'Val.']  + row , _contextManaged = False ) ]
                         keys    = ['sens_at_test', 'sp_index_test', 'spec_at_test' , 'auc_test']
-                        row     = [ '%1.2f$\pm$%1.2f'%(t[key+'_mean']*100 , t[key+'_std']*100) for key in keys]
+                        row     = [ '%1.2f$\pm$%1.2f'%(float(t[key+'_mean'].iloc[0])*100 , float(t[key+'_std'].iloc[0])*100) for key in keys]
                         colorize( row, op_name, color, color_map)
                         lines += [ TableLine( columns = ['', 'Test']  + row , _contextManaged = False ) ]
                         t = best_models.loc[ (best_models.train_tag==train_tag) & (best_models.op_name==op_name) ]
                         keys    = ['sens_at_test', 'sp_index_test', 'spec_at_test' , 'auc_test' ]
-                        row     = [ '%1.2f'%(t[key]*100) for key in keys]
+                        row     = [ '%1.2f'%(float(t[key].iloc[0])*100) for key in keys]
                         colorize( row, op_name, color, color_map)
                         lines += [ TableLine( columns = ['', 'Best (Test)']  + row , _contextManaged = False ) ]
                         lines += [ HLine(_contextManaged = False) ]
                         lines += [ HLine(_contextManaged = False) ]
                         # Create all tables into the PDF Latex
-                        with BeamerSlide( title = f"The in-sample cross val. for {train_tag} in {op_name} operation."  ):
-                            with Table( caption = f'The in-sample mean and standard dev. values for each set.') as table:
+                        with BeamerSlide( title = escape_underline(f"The in-sample cross val. for {train_tag} in {op_name} operation.")  ):
+                            with Table( caption = escape_underline(f'The in-sample mean and standard dev. values for each set.')) as tb:
                                 with ResizeBox( size = 1. ) as rb:
                                     with Tabular( columns = '|lc|' + 'cccc|' ) as tabular:
                                         tabular = tabular
@@ -570,16 +585,16 @@ class crossval_table:
                             exclude_keys = ['train_tag','op_name','dataset_name','true_negative','true_positive','false_negative','false_positive']
                             t = self.describe( oos_table.loc[oos_table.dataset_name==dataset_name] , exclude_keys)
                             keys    = ['sensitivity', 'sp_index', 'specificity']
-                            row     = [ '%1.2f$\pm$%1.2f'%(t[key+'_mean']*100 , t[key+'_std']*100) for key in keys]
+                            row     = [ '%1.2f$\pm$%1.2f'%(float(t[key+'_mean'].iloc[0])*100 , float(t[key+'_std'].iloc[0])*100) for key in keys]
                             colorize( row, op_name, color, color_map)
-                            lines += [ TableLine( columns = [ dataset_name]  + row , _contextManaged = False ) ]
+                            lines += [ TableLine( columns = [ dataset_name ]  + row , _contextManaged = False ) ]
 
                         lines += [ HLine(_contextManaged = False) ]
                         lines += [ HLine(_contextManaged = False) ]
 
                         # Create all tables into the PDF Latex
-                        with BeamerSlide( title = f"The out-of-sample cross val. for {train_tag} in {op_name} operation."  ):
-                            with Table( caption = r'The out-of-sample mean and standard dev values for each dataset.') as table:
+                        with BeamerSlide( title = escape_underline(f"The out-of-sample cross val. for {train_tag} in {op_name} operation.")  ):
+                            with Table( caption = escape_underline(r'The out-of-sample mean and standard dev values for each dataset.') ) as tb:
                                 with ResizeBox( size = 1. ) as rb:
                                     with Tabular( columns = '|l|' + 'ccc|' ) as tabular:
                                         tabular = tabular
@@ -607,7 +622,7 @@ class crossval_table:
                     for train_tag in cv_table.train_tag.unique():
                         t = cv_table.loc[ (cv_table.train_tag==train_tag) & (cv_table.op_name==op_name) ]
                         keys    = ['sens_at_test', 'sp_index_test', 'spec_at_test' , 'auc_test']
-                        row     = [ '%1.2f$\pm$%1.2f'%(t[key+'_mean']*100 , t[key+'_std']*100) for key in keys]
+                        row     = [ '%1.2f$\pm$%1.2f'%(float(t[key+'_mean'].iloc[0])*100 , float(t[key+'_std'].iloc[0])*100) for key in keys]
                         colorize( row, op_name, color, color_map)
                         lines += [ TableLine( columns = [ train_tag, 'Test']  + row , _contextManaged = False ) ]
 
@@ -616,8 +631,8 @@ class crossval_table:
 
 
                     # Create all tables into the PDF Latex
-                    with BeamerSlide( title = f"The in-sample cross val for each method in {op_name} operation."  ):
-                        with Table( caption = r'The in-sample mean and standard dev. values for each method.') as table:
+                    with BeamerSlide( title = escape_underline(f"The in-sample cross val for each method in {op_name} operation.")  ):
+                        with Table( caption = escape_underline(r'The in-sample mean and standard dev. values for each method.') ) as tb:
                             with ResizeBox( size = 1. ) as rb:
                                 with Tabular( columns = '|lc|' + 'cccc|' ) as tabular:
                                     tabular = tabular
@@ -648,7 +663,7 @@ class crossval_table:
                             exclude_keys = ['train_tag','op_name','dataset_name','true_negative','true_positive','false_negative','false_positive']
                             t = self.describe( oos_table.loc[oos_table.dataset_name==dataset_name] , exclude_keys)
                             keys    = ['sensitivity', 'sp_index', 'specificity']
-                            row     = [ '%1.2f$\pm$%1.2f'%(t[key+'_mean']*100 , t[key+'_std']*100) for key in keys]
+                            row     = [ '%1.2f$\pm$%1.2f'%(float(t[key+'_mean'].iloc[0])*100 , float(t[key+'_std'].iloc[0])*100) for key in keys]
                             colorize( row, op_name, color, color_map)
                             if idx > 0:
                                 lines += [ TableLine( columns = [ '', dataset_name]  + row , _contextManaged = False ) ]
@@ -661,8 +676,8 @@ class crossval_table:
                     lines += [ HLine(_contextManaged = False) ]
                     
                     # Create all tables into the PDF Latex
-                    with BeamerSlide( title = f"The out-of-sample cross val. for each method in {op_name} operation."  ):
-                        with Table( caption = r'The out-of-sample mean and stadard dev. values for each method.') as table:
+                    with BeamerSlide( title = escape_underline(f"The out-of-sample cross val. for each method in {op_name} operation.")  ):
+                        with Table( caption = escape_underline(r'The out-of-sample mean and stadard dev. values for each method.') ) as tb:
                             with ResizeBox( size = 0.8 ) as rb:
                                 with Tabular( columns = '|lc|' + 'ccc|' ) as tabular:
                                     tabular = tabular
