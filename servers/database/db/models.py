@@ -41,6 +41,9 @@ class Image(Base):
     date_acquisition = Column(Datetime)
     date_insertion   = Column(DateTime)
     project_id       = Column(String)
+    original_image   = Column(Boolean)
+
+    data             = Column()
 
     # Foreign
     dataset    = relationship("Dataset", back_populates="images")
