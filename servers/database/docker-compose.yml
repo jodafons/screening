@@ -1,0 +1,26 @@
+version: '3.5'
+
+services:
+  
+  database_server:
+    container_name: screening-database-server
+    image: postgres
+    command: postgres -c "max_connections=500"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${SCREENING_STORAGE}/database/data:/var/lib/postgresql/data
+      
+  pgadmin:
+     container_name: screening-pgadmin-server
+     image: dpage/pgadmin4
+     restart: always
+     environment:
+       PGADMIN_DEFAULT_EMAIL: admin@admin.com
+       PGADMIN_DEFAULT_PASSWORD: admin
+     ports:
+       - "5050:80"
