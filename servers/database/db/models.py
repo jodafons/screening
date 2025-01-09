@@ -1,5 +1,5 @@
 
-__all__ = ["Dataset", "Image", "ImageInfo"]
+__all__ = ["Dataset", "Image", "ImageInfo", "User"]
 
 
 import datetime, traceback, os
@@ -72,3 +72,14 @@ class ImageInfo(Base):
     metadata                        = Column(String, default="{}")
 
 
+class User(Base):
+
+    __tablename__ = "user"
+    id             = Column(Integer, primary_key = True)
+    userid         = Column(String, unique=True)
+    username       = Column(String)
+    full_name      = Column(String)
+    email          = Column(String)
+    hashed_password= Column(String)
+    disabled       = Column(Boolean, default=False)
+    level          = Column(String)
