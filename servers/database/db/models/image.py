@@ -1,4 +1,3 @@
-
 __all__ = ["Dataset", "Image", "ImageInfo", "User"]
 
 
@@ -74,15 +73,3 @@ class ImageInfo(Base):
     comment                         = Column(String)
     metadata                        = Column(String, default="{}")
 
-
-class User(Base):
-
-    __tablename__ = "user"
-    id             = Column(Integer, primary_key = True)
-    userid         = Column(String, unique=True)
-    username       = Column(String)
-    full_name      = Column(String)
-    email          = Column(String)
-    hashed_password= Column(String)
-    disabled       = Column(Boolean, default=False)
-    level          = Column(String)

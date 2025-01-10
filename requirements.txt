@@ -1,18 +1,9 @@
 jupyterlab
-scikit-learn
 pandas
-luigi
 matplotlib
-pyarrow
-pydicom
 expand-folders
-pybeamer @git+https://github.com/jodafons/pybeamer.git@main
-atlas_mpl_style
 tqdm
 pandarallel
 gradio
 fastapi
-tensorflow-gpu==2.11.0
 loguru
-tf_keras_vis
-keras-vis
